@@ -1,33 +1,47 @@
-var app = require('express')();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
+const express = require('express')
+const app = express()
+
+
+//set the template engine ejs
+app.set('view engine', 'ejs')
+
+//middlewares
+app.use(express.static('public'))
+
+
+//routes
+app.get('/', (req, res) => {
+	res.render('index')
+})
 
 const port = process.env.PORT || 3000
+//Listen on port 3000
+server = app.listen(3000)
 
-app.get('/', function(req, res) {
-   res.sendfile('index.html');
-});
+//socket.io instantiation
+const io = require("socket.io")(server)
 
-users = [];
-io.on('connection', function(socket) {
-   console.log('A user connected');
-   socket.on('setUsername', function(data) {
-      console.log(data);
 
-      if(users.indexOf(data) > -1) {
-         socket.emit('userExists', data + ' username is taken! Try some other username.');
-      } else {
-         users.push(data);
-         socket.emit('userSet', {username: data});
-      }
-   });
+//listen on every connection
+io.on('connection', (socket) => {
+	console.log('New user connected')
 
-   socket.on('msg', function(data) {
-      //Send message to everyone
-      io.sockets.emit('newmsg', data);
-   })
-});
+	//default username
+	socket.username = "Anonymous"
 
-http.listen(port, function() {
-   console.log('Server is up on port' + port);
-});
+    //listen on change_username
+    socket.on('change_username', (data) => {
+        socket.username = data.username
+    })
+
+    //listen on new_message
+    socket.on('new_message', (data) => {
+        //broadcast the new message
+        io.sockets.emit('new_message', {message : data.message, username : socket.username});
+    })
+
+    //listen on typing
+    socket.on('typing', (data) => {
+    	socket.broadcast.emit('typing', {username : socket.username})
+    })
+})
